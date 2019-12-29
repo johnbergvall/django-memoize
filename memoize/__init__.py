@@ -13,6 +13,9 @@ from django.conf import settings
 from django.core.cache import cache as default_cache
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
 from django.utils.encoding import force_bytes
+from django.utils.module_loading import import_string
+from django.db import models
+
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,19 @@ class DefaultCacheObject(object):
 
 
 DEFAULT_CACHE_OBJECT = DefaultCacheObject()
+
+
+def _get_default_repr_fn():
+    """
+    Override default object representation with MEMOIZE_REPR setting
+    """
+    fn_or_path = getattr(settings, 'MEMOIZE_REPR', None)
+    if fn_or_path and not callable(fn_or_path):
+        return import_string(fn_or_path)
+    return fn_or_path or repr
+
+
+DEFAULT_REPR_FN = _get_default_repr_fn()
 
 
 def _get_argspec(f):
@@ -38,19 +54,21 @@ def _get_argspec(f):
     return argspec
 
 
-def function_namespace(f, args=None):
+def function_namespace(f, args=None, repr_fn=None):
     """
     Attempts to returns unique namespace for function
     """
     m_args = _get_argspec(f).args
     instance_token = None
 
+    repr_fn = repr_fn or DEFAULT_REPR_FN
+
     instance_self = getattr(f, '__self__', None)
 
     if instance_self and not inspect.isclass(instance_self):
-        instance_token = repr(f.__self__)
+        instance_token = repr_fn(f.__self__)
     elif m_args and m_args[0] == 'self' and args:
-        instance_token = repr(args[0])
+        instance_token = repr_fn(args[0])
 
     module = f.__module__ or __name__
 
@@ -93,10 +111,11 @@ class Memoizer(object):
     """
 
     def __init__(self, cache=default_cache, cache_prefix='memoize',
-                 default_cache_value=DEFAULT_CACHE_OBJECT):
+                 default_cache_value=DEFAULT_CACHE_OBJECT, repr_fn=None):
         self.cache = cache
         self.cache_prefix = cache_prefix
         self.default_cache_value = default_cache_value
+        self.repr_fn = repr_fn or DEFAULT_REPR_FN
 
     def get(self, key):
         "Proxy function for internal cache object."
@@ -151,7 +170,7 @@ class Memoizer(object):
         """
         Updates the hash version associated with a memoized function or method.
         """
-        fname, instance_fname = function_namespace(f, args=args)
+        fname, instance_fname = function_namespace(f, args=args, repr_fn=self.repr_fn)
         version_key = self._memvname(fname)
         fetch_keys = [version_key]
 
@@ -233,6 +252,8 @@ class Memoizer(object):
         arg_num = 0
         argspec = _get_argspec(f)
 
+        repr_fn = self.repr_fn
+
         args_len = len(argspec.args)
         for i in range(args_len):
             if i == 0 and argspec.args[i] in ('self', 'cls'):
@@ -273,14 +294,14 @@ class Memoizer(object):
             # if hasattr(arg, '__cacherepr__'):
             #     arg = arg.__cacherepr__
 
-            new_args.append(repr(arg))
+            new_args.append(repr_fn(arg))
 
         # If there are any missing varargs then
         # just append them since consistency of the key trumps order.
         if argspec.varargs and args_len < len(args):
-            new_args.extend(repr(arg) for arg in args[args_len:])
+            new_args.extend(repr_fn(arg) for arg in args[args_len:])
 
-        return tuple(new_args), dict((k, repr(kwargs[k])) for k in kwargs)
+        return tuple(new_args), dict((k, repr_fn(kwargs[k])) for k in kwargs)
 
     def memoize(self, timeout=DEFAULT_TIMEOUT, make_name=None, unless=None):
         """

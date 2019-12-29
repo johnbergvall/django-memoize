@@ -88,6 +88,14 @@ every time this information is needed you might do something like the following:
             def __repr__(self):
                 return "%s(%s)" % (self.__class__.__name__, self.id)
 
+Override default object representation
+``````````````````````````````````````
+
+To use another function instead of repr() to convert mutable objects, either
+pass `repr_fn=callable` to your `Memoize()`-initializer, or set
+`MEMOIZE_REPR = 'callable'` in your settings.py to use it project-wide.
+
+
 Deleting memoize cache
 ``````````````````````
 

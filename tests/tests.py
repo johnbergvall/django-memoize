@@ -7,6 +7,7 @@ import sys
 import time
 
 from django.test import SimpleTestCase
+from django.db import models
 
 from freezegun import freeze_time
 from memoize import Memoizer, _get_argspec, function_namespace
@@ -540,3 +541,43 @@ class MemoizeTestCase(SimpleTestCase):
             assert argspec.__class__.__name__ is 'ArgSpec'
         else:
             assert argspec.__class__.__name__ is 'FullArgSpec'
+
+    def test_19_test_custom_repr_fn(self):
+
+        custom_memoizer = Memoizer(repr_fn=lambda x: 'static')
+        memoizer = Memoizer()
+
+        class Test(object):
+
+            def fn(self, arg=None):
+                return 1
+
+            cached_fn = memoizer.memoize(60)(fn)
+            cached_fn_custom_repr = custom_memoizer.memoize(60)(fn)
+
+            def __str__(self):
+                return 'str'
+            __unicode__ = __str__
+
+            def __repr__(self):
+                return 'repr'
+
+        fake_obj = Test()
+        fake_obj2 = Test()
+
+        def _get_keys(obj):
+            cache_key = obj.cached_fn.make_cache_key(obj.fn, obj, 123)
+            custom_cache_key = obj.cached_fn_custom_repr.make_cache_key(obj.fn, obj, 123)
+
+            return cache_key, custom_cache_key
+
+        cache_key, custom_cache_key = _get_keys(fake_obj)
+        assert cache_key != custom_cache_key
+
+        cache_key2, custom_cache_key2 = _get_keys(fake_obj2)
+        assert cache_key == cache_key2
+        assert custom_cache_key == custom_cache_key2
+
+        custom_cache_key3 = fake_obj.cached_fn_custom_repr.make_cache_key(fake_obj.fn, fake_obj, ['test'])
+        assert custom_cache_key == custom_cache_key3
+
