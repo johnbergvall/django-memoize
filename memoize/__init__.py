@@ -240,7 +240,7 @@ class Memoizer(object):
                 #: this supports instance methods for
                 #: the memoized functions, giving more
                 #: flexibility to developers
-                arg = repr(args[0])
+                arg = args[0]
                 arg_num += 1
             elif argspec.args[i] in kwargs:
                 arg = kwargs.pop(argspec.args[i])
@@ -273,14 +273,14 @@ class Memoizer(object):
             # if hasattr(arg, '__cacherepr__'):
             #     arg = arg.__cacherepr__
 
-            new_args.append(arg)
+            new_args.append(repr(arg))
 
         # If there are any missing varargs then
         # just append them since consistency of the key trumps order.
         if argspec.varargs and args_len < len(args):
-            new_args.extend(args[args_len:])
+            new_args.extend(repr(arg) for arg in args[args_len:])
 
-        return tuple(new_args), kwargs
+        return tuple(new_args), dict((k, repr(kwargs[k])) for k in kwargs)
 
     def memoize(self, timeout=DEFAULT_TIMEOUT, make_name=None, unless=None):
         """

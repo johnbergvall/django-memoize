@@ -458,7 +458,7 @@ class MemoizeTestCase(SimpleTestCase):
         def big_foo(a, b, c=None, d=None):
             return sum(a) + sum(b) + random.randrange(0, 100000)
 
-        expected = (1, 2, 'foo', 'bar')
+        expected = ('1', '2', "'foo'", "'bar'")
 
         args, kwargs = self.memoizer._memoize_kwargs_to_args(
             big_foo, 1, 2, 'foo', 'bar')
