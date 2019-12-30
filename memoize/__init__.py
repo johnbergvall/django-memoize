@@ -37,6 +37,24 @@ def _get_default_repr_fn():
     return fn_or_path or repr
 
 
+def model_repr(obj, recurse=2):
+    """
+    Special handling for Django models and querysets
+    Use model module + class + non-False pk for django.db.Model-instances, SQL for querysets and repr(obj) otherwise
+    Try to convert list, tuple and dict-values 3 levels down.
+    """
+    if isinstance(obj, models.Model) and obj.pk:
+        return '{}.{}={}'.format(obj.__module__ or __name__, obj.__class__.__name__, obj.pk)
+    if isinstance(obj, models.query.QuerySet):
+        return repr(obj.query.sql_with_params())
+    if isinstance(obj, dict) and (recurse or 0) >= 1:
+        return repr(dict((k, model_repr(obj[k], recurse - 1)) for k in obj))
+    if isinstance(obj, (list, tuple)) and (recurse or 0) >= 1:
+        lst = [model_repr(o, recurse - 1) for o in obj]
+        return repr(tuple(lst) if isinstance(obj, tuple) else lst)
+    return repr(obj)
+
+
 DEFAULT_REPR_FN = _get_default_repr_fn()
 
 

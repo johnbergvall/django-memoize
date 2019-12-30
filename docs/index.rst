@@ -93,7 +93,12 @@ Override default object representation
 
 To use another function instead of repr() to convert mutable objects, either
 pass `repr_fn=callable` to your `Memoize()`-initializer, or set
-`MEMOIZE_REPR = 'callable'` in your settings.py to use project-wide.
+`MEMOIZE_REPR = 'callable'` in your settings.py to use it project-wide.
+
+For automatic handling of django.db.models.Model and django.db.query.QuerySet,
+use `MEMOIZE_REPR = 'memoize.model_repr'`. This will use the model module, class
+and `pk`, QuerySet SQL, or `repr()` as fallback. Lists, tuples and dicts will be
+converted at most 2 levels down.
 
 
 Deleting memoize cache
